@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoUnscrambler — Free Word Unscrambler (demo)</title>
+<meta name="description" content="Unscramble letters into every valid English word — free, instant, no signup. Demo of the gounscrambler-js library.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --pine: #14532D; --mint: #DCEFE2; --ink: #1a1a1a; --muted: #65605C; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Plus Jakarta Sans", system-ui, sans-serif; background: var(--mint); color: var(--ink); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .tile { width: 44px; height: 44px; background: var(--pine); color: #fff; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 26px; transform: rotate(-6deg); }
+  h1 { font-size: 26px; margin: 0; color: var(--pine); }
+  p.sub { color: var(--muted); margin: 4px 0 24px; }
+  .card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(20,83,45,.08); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=text] { flex: 1; min-width: 180px; font-family: "IBM Plex Mono", monospace; font-size: 18px; padding: 12px 14px; border: 2px solid var(--pine); border-radius: 10px; text-transform: uppercase; outline: none; }
+  input[type=text]:focus { box-shadow: 0 0 0 3px rgba(20,83,45,.2); }
+  button { background: var(--pine); color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  button:hover { opacity: .92; }
+  select { padding: 10px; border-radius: 10px; border: 1px solid #ccc; font-size: 14px; background: #fff; }
+  .meta { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+  .groups { margin-top: 20px; }
+  .group h2 { font-size: 15px; color: var(--pine); margin: 18px 0 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--mint); border-radius: 8px; padding: 6px 10px; font-family: "IBM Plex Mono", monospace; font-size: 14px; }
+  .chip b { color: var(--pine); }
+  .chip.exact { background: #dcfce7; outline: 2px solid #16a34a; }
+  footer { margin-top: 28px; font-size: 14px; color: var(--muted); text-align: center; }
+  footer a { color: var(--pine); font-weight: 600; }
+  .loading { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="tile">G</div><h1>GoUnscrambler</h1></header>
+  <p class="sub">Free word unscrambler — type your letters, get every word. Demo of the <code>gounscrambler-js</code> library (369,479 words, US list).</p>
+
+  <div class="card">
+    <div class="row">
+      <input id="letters" type="text" maxlength="20" placeholder="e.g. LISTEN" autocomplete="off" spellcheck="false">
+      <button id="go">Unscramble</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <select id="sort">
+        <option value="common">Most common first</option>
+        <option value="score">Highest score first</option>
+        <option value="alpha">A to Z</option>
+      </select>
+      <select id="scoremode">
+        <option value="scrabble">Scrabble scoring</option>
+        <option value="wwf">Words With Friends scoring</option>
+      </select>
+      <label style="font-size:14px; display:flex; align-items:center; gap:6px"><input id="exact" type="checkbox"> Exact anagrams only</label>
+    </div>
+    <p class="meta" id="meta">Loading word list…</p>
+    <div class="groups" id="results"></div>
+  </div>
+
+  <footer>
+    <p>Full solver with UK + Words With Friends dictionaries, definitions and more at
+    <a href="https://gounscrambler.com/">gounscrambler.com</a> — free, no signup.</p>
+    <p>Library source: <a href="https://github.com/rashid827/gounscrambler-js">github.com/rashid827/gounscrambler-js</a> (MIT)</p>
+  </footer>
+</div>
+
+<script src="solver.js"></script>
+<script>
+(function () {
+  var meta = document.getElementById("meta"),
+      out = document.getElementById("results"),
+      input = document.getElementById("letters"),
+      btn = document.getElementById("go");
+
+  GoUnscrambler.init().then(function () {
+    meta.textContent = GoUnscrambler.wordCount().toLocaleString() + " words loaded. Type letters and press Unscramble. Use ? for a blank tile.";
+    run();
+  }).catch(function (e) {
+    meta.textContent = "Could not load the word list: " + e.message;
+  });
+
+  function run() {
+    var letters = input.value.trim();
+    if (!letters) { out.innerHTML = ""; meta.textContent = "Type some letters first."; return; }
+    var exact = document.getElementById("exact").checked;
+    var r = GoUnscrambler.unscramble(letters, {
+      sort: document.getElementById("sort").value,
+      scoreMode: document.getElementById("scoremode").value,
+      useAll: exact
+    });
+    meta.textContent = r.total.toLocaleString() + " word" + (r.total === 1 ? "" : "s") + " from \"" + letters.toUpperCase() + "\".";
+    var groups = {}, order = [], i, res, g;
+    for (i = 0; i < r.results.length; i++) {
+      res = r.results[i];
+      if (!groups[res.l]) { groups[res.l] = []; order.push(res.l); }
+      groups[res.l].push(res);
+    }
+    order.sort(function (a, b) { return b - a; });
+    var html = "";
+    order.forEach(function (len) {
+      var list = groups[len];
+      var exactLen = (len === letters.replace(/[^a-z?]/gi, "").length);
+      html += '<div class="group"><h2>' + len + '-letter words (' + list.length + ')</h2><div class="chips">';
+      list.slice(0, 60).forEach(function (res) {
+        html += '<span class="chip' + (exactLen ? " exact" : "") + '">' + res.w.toUpperCase() + ' <b>' + res.s + '</b></span>';
+      });
+      if (list.length > 60) html += '<span class="chip">+' + (list.length - 60) + ' more</span>';
+      html += "</div></div>";
+    });
+    out.innerHTML = html || "<p class='loading'>No words found — try different letters.</p>";
+  }
+
+  btn.addEventListener("click", run);
+  input.addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
+  input.focus();
+})();
+</script>
+</body>
+</html>
